@@ -18,30 +18,39 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    // Supabase requires an email format, so we append a fake domain to the username
-    const fakeEmail = `${username.trim().toLowerCase()}@dialysis.app`;
-
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email: fakeEmail,
-          password: password.trim(),
-          options: {
-            data: {
-              display_name: username.trim(),
-              role: username.trim().toLowerCase() === 'admin' ? 'admin' : 'user'
-            }
-          }
-        });
+        // Simple Sign Up: Insert into our custom table
+        const { error } = await supabase
+          .from('dialysis_users')
+          .insert([{ 
+            username: username.trim(), 
+            password: password.trim(),
+            role: username.trim().toLowerCase() === 'admin' ? 'admin' : 'user'
+          }]);
+        
         if (error) throw error;
-        alert('Account created! You can now log in.');
+        alert('Account created successfully! You can now log in.');
         setIsSignUp(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: fakeEmail,
-          password: password.trim(),
-        });
-        if (error) throw error;
+        // Simple Login: Check if username and password match in our table
+        const { data, error } = await supabase
+          .from('dialysis_users')
+          .select('*')
+          .eq('username', username.trim())
+          .eq('password', password.trim())
+          .single();
+
+        if (error || !data) {
+          throw new Error('Invalid username or password');
+        }
+
+        // Store session in localStorage (Simple method)
+        const session = { 
+          username: data.username, 
+          isAdmin: data.role === 'admin' 
+        };
+        localStorage.setItem('dialysis_session', JSON.stringify(session));
         router.push('/');
       }
     } catch (err: any) {

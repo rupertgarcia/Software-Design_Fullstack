@@ -8,7 +8,6 @@ import RecordForm from '@/components/RecordForm';
 import RecordViewer from '@/components/RecordViewer';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { supabase } from '@/lib/supabase';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,40 +23,17 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session: authSession } } = await supabase.auth.getSession();
-      
-      if (!authSession) {
-        router.push('/login');
-      } else {
-        const username = authSession.user.user_metadata?.display_name || authSession.user.email?.split('@')[0] || 'User';
-        setSession({
-          username: username,
-          isAdmin: authSession.user.user_metadata?.role === 'admin' || username.toLowerCase() === 'admin'
-        });
-      }
-      setLoading(false);
-    };
-
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
-      if (!session) {
-        router.push('/login');
-      } else {
-        const username = session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User';
-        setSession({
-          username: username,
-          isAdmin: session.user.user_metadata?.role === 'admin' || username.toLowerCase() === 'admin'
-        });
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    const storedSession = localStorage.getItem('dialysis_session');
+    if (!storedSession) {
+      router.push('/login');
+    } else {
+      setSession(JSON.parse(storedSession));
+    }
+    setLoading(false);
   }, [router]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    localStorage.removeItem('dialysis_session');
     router.push('/login');
   };
 
