@@ -333,7 +333,16 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
           </div>
           <div className="form-group">
             <label>Machine # <span className="text-red-500">*</span></label>
-            <input type="text" required value={formData.machine_number} onChange={(e) => setFormData({ ...formData, machine_number: e.target.value })} placeholder="M-01" />
+            <select
+              required
+              value={formData.machine_number}
+              onChange={(e) => setFormData({ ...formData, machine_number: e.target.value })}
+            >
+              <option value="">Select Machine</option>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+                <option key={n} value={n.toString()}>Machine {n}</option>
+              ))}
+            </select>
           </div>
           <div className="form-group">
             <label>Dialyzer Type <span className="text-red-500">*</span></label>
@@ -344,7 +353,16 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
           </div>
           <div className="form-group">
             <label>Assigned Nurse <span className="text-red-500">*</span></label>
-            <input type="text" required value={formData.nurse} onChange={(e) => setFormData({ ...formData, nurse: e.target.value })} />
+            <select
+              required
+              value={formData.nurse}
+              onChange={(e) => setFormData({ ...formData, nurse: e.target.value })}
+            >
+              <option value="">Select Nurse</option>
+              {['Nurse Alice', 'Nurse Bob', 'Nurse Carol', 'Nurse Dan', 'Nurse Eve'].map(n => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </div>
         </div>
 
