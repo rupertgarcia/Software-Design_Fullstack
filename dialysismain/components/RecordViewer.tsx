@@ -5,6 +5,7 @@ import { Database, Filter, Search, X, Check, Printer, FileText, FolderOpen, Chev
 import { DialysisRecord, UserSession } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
+import * as XLSX from 'xlsx';
 
 interface RecordViewerProps {
   session: UserSession | null;
@@ -83,6 +84,31 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
     window.print();
   };
 
+  const handleExportXLSX = () => {
+    const dataToExport = filteredRecords.map(r => ({
+      'Record ID': r.record_id,
+      'First Name': r.first_name,
+      'Last Name': r.last_name,
+      'Date': r.session_date,
+      'Time': `${r.start_time} - ${r.end_time}`,
+      'Machine': `Machine ${r.machine_number}`,
+      'Dialyzer': r.dialyzer_type,
+      'Pre-BP': r.pre_bp,
+      'Pre-Weight': r.pre_weight,
+      'Post-BP': r.post_bp,
+      'Post-Weight': r.post_weight,
+      'UF Goal': r.uf_goal,
+      'Fluid Removed': r.fluid_removed,
+      'Nurse': r.nurse,
+      'Remarks': r.remarks
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dialysis Records');
+    XLSX.writeFile(workbook, `Dialysis_Records_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
   const printRecords = useMemo(() => {
     return filteredRecords.filter(r => {
       const matchesFrom = !printDateFrom || r.session_date >= printDateFrom;
@@ -107,9 +133,14 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
           <h2 className="text-xl font-bold flex items-center gap-2"><Database className="w-5 h-5 text-teal-600" /> Database Records</h2>
           <p className="text-gray-500 text-sm">Manage and filter dialysis sessions.</p>
         </div>
-        <button onClick={() => setIsPrintModalOpen(true)} className="btn btn-blue">
-          <Printer className="w-4 h-4" /> Print / Export PDF
-        </button>
+        <div className="flex gap-3">
+          <button onClick={handleExportXLSX} className="btn btn-green">
+            <FileText className="w-4 h-4" /> Export to Excel
+          </button>
+          <button onClick={() => setIsPrintModalOpen(true)} className="btn btn-blue">
+            <Printer className="w-4 h-4" /> Print / Export PDF
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -299,7 +330,7 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       )}
 
       {/* Print Only Content */}
-      <div className="hidden print-only p-10">
+      <div className="hidden print:block p-10 print-only">
         <div className="text-center mb-10 border-b-2 border-teal-600 pb-6">
           <h1 className="text-3xl font-black text-teal-800 uppercase tracking-tighter">Dialysis Session Records Report</h1>
           <p className="text-gray-500 mt-2 font-medium">

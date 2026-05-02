@@ -54,12 +54,15 @@
 }
 
 @media print {
+  /* Hide EVERYTHING on the page by default when printing */
   body * {
-    visibility: hidden;
+    display: none !important;
   }
   
+  /* Show only the print-only container and its children */
   .print-only, .print-only * {
-    visibility: visible;
+    display: block !important;
+    visibility: visible !important;
   }
   
   .print-only {
@@ -67,33 +70,26 @@
     left: 0;
     top: 0;
     width: 100%;
-    display: block !important;
-  }
-
-  .print-header {
-    text-align: center;
-    margin-bottom: 20px;
+    margin: 0;
+    padding: 20px;
+    background: white;
   }
 
   .print-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10pt;
+    margin-top: 20px;
   }
 
   .print-table th, .print-table td {
-    border: 1px solid #ddd;
-    padding: 6px 8px;
+    border: 1px solid #000;
+    padding: 8px;
     text-align: left;
+    font-size: 9pt;
   }
 
   .print-table th {
-    background-color: #f3f4f6 !important;
+    background-color: #f0f0f0 !important;
     -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .no-print {
-    display: none !important;
   }
 }
