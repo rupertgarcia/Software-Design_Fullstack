@@ -326,7 +326,7 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       )}
 
       {/* Print Only Content */}
-      <div className="hidden print:block p-10 print-only">
+      <div className="print-only-container p-10">
         <div className="text-center mb-10 border-b-2 border-teal-600 pb-6">
           <h1 className="text-3xl font-black text-teal-800 uppercase tracking-tighter">Dialysis Session Records Report</h1>
           <p className="text-gray-500 mt-2 font-medium">
