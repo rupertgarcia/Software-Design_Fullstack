@@ -72,7 +72,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
 
     if (!data || data.length === 0) return 'REC-1001';
 
-    const ids = data.map(r => {
+    const ids = data.map((r: { record_id: string }) => {
       const match = r.record_id.match(/REC-(\d+)/);
       return match ? parseInt(match[1]) : 1000;
     });
