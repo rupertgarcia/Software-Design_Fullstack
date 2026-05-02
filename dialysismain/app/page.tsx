@@ -30,9 +30,10 @@ export default function Dashboard() {
       if (!authSession) {
         router.push('/login');
       } else {
+        const username = authSession.user.user_metadata?.display_name || authSession.user.email?.split('@')[0] || 'User';
         setSession({
-          username: authSession.user.email?.split('@')[0] || 'User',
-          isAdmin: authSession.user.user_metadata?.role === 'admin' || authSession.user.email === 'admin@example.com'
+          username: username,
+          isAdmin: authSession.user.user_metadata?.role === 'admin' || username.toLowerCase() === 'admin'
         });
       }
       setLoading(false);
@@ -44,9 +45,10 @@ export default function Dashboard() {
       if (!session) {
         router.push('/login');
       } else {
+        const username = session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User';
         setSession({
-          username: session.user.email?.split('@')[0] || 'User',
-          isAdmin: session.user.user_metadata?.role === 'admin' || session.user.email === 'admin@example.com'
+          username: username,
+          isAdmin: session.user.user_metadata?.role === 'admin' || username.toLowerCase() === 'admin'
         });
       }
     });

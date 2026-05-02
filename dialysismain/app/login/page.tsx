@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { HeartPulse, Lock, Mail, UserPlus, LogIn } from 'lucide-react';
+import { HeartPulse, Lock, User, UserPlus, LogIn } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
@@ -18,23 +18,27 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
+    // Supabase requires an email format, so we append a fake domain to the username
+    const fakeEmail = `${username.trim().toLowerCase()}@dialysis.app`;
+
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
-          email: email.trim(),
+          email: fakeEmail,
           password: password.trim(),
           options: {
             data: {
-              role: email.trim() === 'admin@example.com' ? 'admin' : 'user'
+              display_name: username.trim(),
+              role: username.trim().toLowerCase() === 'admin' ? 'admin' : 'user'
             }
           }
         });
         if (error) throw error;
-        alert('Signup successful! Please check your email for verification (if enabled) or try logging in.');
+        alert('Account created! You can now log in.');
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: fakeEmail,
           password: password.trim(),
         });
         if (error) throw error;
@@ -69,14 +73,14 @@ export default function LoginPage() {
           
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-gray-400" /> Email Address
+              <User className="w-4 h-4 text-gray-400" /> Username
             </label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter username"
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-4 focus:ring-teal-500/10 focus:border-[#0d9488] transition-all outline-none"
             />
           </div>
@@ -90,7 +94,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="Enter password"
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-4 focus:ring-teal-500/10 focus:border-[#0d9488] transition-all outline-none"
             />
           </div>
