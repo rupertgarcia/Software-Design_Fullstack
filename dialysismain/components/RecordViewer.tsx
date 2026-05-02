@@ -233,7 +233,6 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
               <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Post BP/Wt</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">UF/Net</th>
               <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Nurse</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -260,14 +259,11 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
                   </td>
                   <td className="px-4 py-4 text-gray-600">{record.uf_goal}L / {record.fluid_removed}L</td>
                   <td className="px-4 py-4 text-gray-600">{record.nurse}</td>
-                  <td className="px-4 py-4 text-xs text-gray-500 max-w-[150px] truncate" title={record.remarks}>
-                    {record.remarks || '-'}
-                  </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={11} className="py-20 text-center text-gray-400">
+                <td colSpan={10} className="py-20 text-center text-gray-400">
                   <div className="flex flex-col items-center">
                     <FolderOpen className="w-12 h-12 mb-2 text-gray-200" />
                     <p>No records found matching your criteria.</p>

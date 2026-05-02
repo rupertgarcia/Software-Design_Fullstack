@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { User, Clock, Stethoscope, Droplet, Eraser, Plus, Trash2, Save, X } from 'lucide-react';
-import { DialysisRecord, UserSession } from '@/types';
+import { useState, useEffect, useRef } from 'react';
+import { Save, RefreshCw, X, User, Calendar, Clock, Activity, FileText, Search } from 'lucide-react';
+import { DialysisRecord, UserSession, Patient } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 interface RecordFormProps {
@@ -17,7 +17,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
   const [formData, setFormData] = useState<any>({
     first_name: '',
     last_name: '',
-    session_date: '',
+    session_date: new Date().toISOString().split('T')[0],
     start_time: '',
     end_time: '',
     machine_number: '',
@@ -28,9 +28,14 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
     post_weight: '',
     uf_goal: '',
     fluid_removed: '',
-    nurse: '',
+    nurse: session?.username || '',
     remarks: ''
   });
+
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [showPatientSearch, setShowPatientSearch] = useState(false);
+  const [patientSearchQuery, setPatientSearchQuery] = useState('');
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editingRecord) {
@@ -40,11 +45,29 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
     }
   }, [editingRecord]);
 
+  useEffect(() => {
+    fetchPatients();
+    
+    // Close search dropdown when clicking outside
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowPatientSearch(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const fetchPatients = async () => {
+    const { data } = await supabase.from('patients').select('*');
+    if (data) setPatients(data);
+  };
+
   const clearForm = () => {
     setFormData({
       first_name: '',
       last_name: '',
-      session_date: '',
+      session_date: new Date().toISOString().split('T')[0],
       start_time: '',
       end_time: '',
       machine_number: '',
@@ -55,7 +78,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
       post_weight: '',
       uf_goal: '',
       fluid_removed: '',
-      nurse: '',
+      nurse: session?.username || '',
       remarks: ''
     });
   };
@@ -63,22 +86,30 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
   const generateRecordId = async () => {
     const { data, error } = await supabase
       .from('dialysis_records')
-      .select('record_id');
-    
-    if (error) {
-      console.error('Error fetching records for ID generation:', error);
-      return 'REC-1001';
-    }
+      .select('record_id')
+      .order('record_id', { ascending: false })
+      .limit(1);
 
-    if (!data || data.length === 0) return 'REC-1001';
+    if (error || !data || data.length === 0) return 'REC-0001';
 
-    const ids = data.map((r: { record_id: string }) => {
-      const match = r.record_id.match(/REC-(\d+)/);
-      return match ? parseInt(match[1]) : 1000;
+    const lastId = data[0].record_id;
+    const lastNum = parseInt(lastId.split('-')[1]);
+    return `REC-${String(lastNum + 1).padStart(4, '0')}`;
+  };
+
+  const selectPatient = (patient: Patient) => {
+    setFormData({
+      ...formData,
+      first_name: patient.first_name,
+      last_name: patient.last_name,
+      pre_weight: patient.default_pre_weight.toString(),
+      pre_bp: patient.default_pre_bp,
+      uf_goal: patient.default_uf_goal.toString(),
+      dialyzer_type: patient.default_dialyzer_type
     });
-
-    const maxId = Math.max(...ids);
-    return `REC-${maxId + 1}`;
+    setShowPatientSearch(false);
+    setPatientSearchQuery('');
+    onShowToast(`Loaded defaults for ${patient.first_name}`, 'info');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,7 +125,6 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
       };
 
       if (editingRecord) {
-        // Update
         if (!session?.isAdmin) {
           onShowToast('Only admins can update records', 'error');
           return;
@@ -108,7 +138,6 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
         if (error) throw error;
         onShowToast('Record updated successfully', 'success');
       } else {
-        // Add
         const newRecordId = await generateRecordId();
         const { error } = await supabase
           .from('dialysis_records')
@@ -119,40 +148,69 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
       }
       
       onSuccess();
-      clearForm();
+      if (!editingRecord) clearForm();
     } catch (error: any) {
-      onShowToast(error.message || 'Operation failed', 'error');
+      onShowToast(error.message || 'Error saving record', 'error');
     }
   };
 
-  const handleDelete = async () => {
-    if (!editingRecord || !session?.isAdmin) return;
-    
-    if (confirm('Are you sure you want to delete this record?')) {
-      try {
-        const { error } = await supabase
-          .from('dialysis_records')
-          .delete()
-          .eq('id', editingRecord.id);
-
-        if (error) throw error;
-        onShowToast('Record deleted successfully', 'warning');
-        onSuccess();
-        clearForm();
-      } catch (error: any) {
-        onShowToast(error.message || 'Deletion failed', 'error');
-      }
-    }
-  };
+  const filteredPatients = patients.filter(p => 
+    `${p.first_name} ${p.last_name}`.toLowerCase().includes(patientSearchQuery.toLowerCase())
+  );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Patient Info Card */}
-      <div className="form-card">
-        <div className="card-header">
-          <User className="w-5 h-5 text-teal-600" /> Patient Information
+    <form onSubmit={handleSubmit} className="form-card animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="card-header flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          {editingRecord ? <RefreshCw className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+          {editingRecord ? 'Update Session Record' : 'Create New Session Record'}
         </div>
-        <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-5">
+        {!editingRecord && (
+          <div className="relative" ref={searchRef}>
+            <div className="flex items-center bg-white/20 rounded-lg px-3 py-1 text-sm border border-white/30 focus-within:bg-white/30 transition-all">
+              <Search className="w-4 h-4 mr-2" />
+              <input 
+                type="text" 
+                placeholder="Search patient..." 
+                className="bg-transparent border-none focus:ring-0 p-0 text-white placeholder:text-teal-50/70 w-32 md:w-48"
+                value={patientSearchQuery}
+                onFocus={() => setShowPatientSearch(true)}
+                onChange={(e) => {
+                  setPatientSearchQuery(e.target.value);
+                  setShowPatientSearch(true);
+                }}
+              />
+            </div>
+            
+            {showPatientSearch && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 z-[100] max-h-60 overflow-y-auto text-gray-800">
+                {filteredPatients.length > 0 ? (
+                  filteredPatients.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => selectPatient(p)}
+                      className="w-full text-left px-4 py-3 hover:bg-teal-50 flex flex-col border-b border-gray-50 last:border-0"
+                    >
+                      <span className="font-bold text-gray-900">{p.last_name}, {p.first_name}</span>
+                      <span className="text-xs text-gray-500">Goal: {p.default_uf_goal}L • Wt: {p.default_pre_weight}kg</span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="p-4 text-center text-gray-400 text-sm">No patients found</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="card-body">
+        {/* Patient Info */}
+        <div className="section-title">
+          <User className="w-4 h-4" /> Patient Information
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
           <div className="form-group">
             <label>First Name <span className="text-red-500">*</span></label>
             <input
@@ -160,7 +218,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               required
               value={formData.first_name}
               onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-              placeholder="e.g., John"
+              placeholder="Enter first name"
             />
           </div>
           <div className="form-group">
@@ -170,57 +228,64 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               required
               value={formData.last_name}
               onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-              placeholder="e.g., Doe"
+              placeholder="Enter last name"
             />
           </div>
         </div>
-      </div>
 
-      {/* Session Details Card */}
-      <div className="form-card">
-        <div className="card-header">
-          <Clock className="w-5 h-5 text-teal-600" /> Session Details
+        {/* Session Details */}
+        <div className="section-title">
+          <Calendar className="w-4 h-4" /> Session Details
         </div>
-        <div className="card-body grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           <div className="form-group">
-            <label>Session Date <span className="text-red-500">*</span></label>
-            <input
-              type="date"
-              required
-              value={formData.session_date}
-              onChange={(e) => setFormData({ ...formData, session_date: e.target.value })}
-            />
+            <label>Date <span className="text-red-500">*</span></label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <input
+                type="date"
+                required
+                className="pl-10"
+                value={formData.session_date}
+                onChange={(e) => setFormData({ ...formData, session_date: e.target.value })}
+              />
+            </div>
           </div>
           <div className="form-group">
             <label>Start Time <span className="text-red-500">*</span></label>
-            <input
-              type="time"
-              required
-              value={formData.start_time}
-              onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-            />
+            <div className="relative">
+              <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <input
+                type="time"
+                required
+                className="pl-10"
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+              />
+            </div>
           </div>
           <div className="form-group">
             <label>End Time <span className="text-red-500">*</span></label>
-            <input
-              type="time"
-              required
-              value={formData.end_time}
-              onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-            />
+            <div className="relative">
+              <Clock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <input
+                type="time"
+                required
+                className="pl-10"
+                value={formData.end_time}
+                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+              />
+            </div>
           </div>
           <div className="form-group">
-            <label>Machine Number <span className="text-red-500">*</span></label>
-            <select
+            <label>Machine # <span className="text-red-500">*</span></label>
+            <input
+              type="text"
               required
               value={formData.machine_number}
               onChange={(e) => setFormData({ ...formData, machine_number: e.target.value })}
-            >
-              <option value="" disabled>Select Machine</option>
-              {[1, 2, 3, 4, 5, 6].map(n => (
-                <option key={n} value={n.toString()}>Machine {n}</option>
-              ))}
-            </select>
+              placeholder="e.g. M-01"
+            />
           </div>
           <div className="form-group">
             <label>Dialyzer Type <span className="text-red-500">*</span></label>
@@ -229,32 +294,42 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               value={formData.dialyzer_type}
               onChange={(e) => setFormData({ ...formData, dialyzer_type: e.target.value })}
             >
-              <option value="" disabled>Select Dialyzer</option>
-              {['Type A', 'Type B', 'Type C', 'High Flux', 'Low Flux'].map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
+              <option value="">Select Type</option>
+              <option value="Type A">Type A</option>
+              <option value="Type B">Type B</option>
+              <option value="Type C">Type C</option>
+              <option value="High Flux">High Flux</option>
+              <option value="Low Flux">Low Flux</option>
             </select>
           </div>
+          <div className="form-group">
+            <label>Assigned Nurse <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              required
+              value={formData.nurse}
+              onChange={(e) => setFormData({ ...formData, nurse: e.target.value })}
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Vitals Card */}
-      <div className="form-card">
-        <div className="card-header">
-          <Stethoscope className="w-5 h-5 text-teal-600" /> Vitals
+        {/* Clinical Data */}
+        <div className="section-title">
+          <Activity className="w-4 h-4" /> Clinical Data
         </div>
-        <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Pre-Dialysis</h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="space-y-5 p-5 bg-teal-50/50 rounded-2xl border border-teal-100">
+            <h4 className="text-teal-800 font-bold flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 bg-teal-500 rounded-full"></span> Pre-Dialysis
+            </h4>
             <div className="form-group">
-              <label>Blood Pressure (mmHg) <span className="text-red-500">*</span></label>
+              <label>Blood Pressure <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 required
-                pattern="\d{2,3}\/\d{2,3}"
+                placeholder="120/80"
                 value={formData.pre_bp}
                 onChange={(e) => setFormData({ ...formData, pre_bp: e.target.value })}
-                placeholder="e.g., 120/80"
               />
             </div>
             <div className="form-group">
@@ -268,17 +343,19 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               />
             </div>
           </div>
-          <div className="space-y-4">
-            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Post-Dialysis</h4>
+
+          <div className="space-y-5 p-5 bg-slate-50/50 rounded-2xl border border-slate-100">
+            <h4 className="text-slate-800 font-bold flex items-center gap-2 mb-2">
+              <span className="w-2 h-2 bg-slate-500 rounded-full"></span> Post-Dialysis
+            </h4>
             <div className="form-group">
-              <label>Blood Pressure (mmHg) <span className="text-red-500">*</span></label>
+              <label>Blood Pressure <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 required
-                pattern="\d{2,3}\/\d{2,3}"
+                placeholder="110/70"
                 value={formData.post_bp}
                 onChange={(e) => setFormData({ ...formData, post_bp: e.target.value })}
-                placeholder="e.g., 110/70"
               />
             </div>
             <div className="form-group">
@@ -293,14 +370,12 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Fluids & Staff Card */}
-      <div className="form-card">
-        <div className="card-header">
-          <Droplet className="w-5 h-5 text-teal-600" /> Fluids & Staff
+        {/* UF Data */}
+        <div className="section-title">
+          <Activity className="w-4 h-4" /> UF Data
         </div>
-        <div className="card-body grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
           <div className="form-group">
             <label>UF Goal (L) <span className="text-red-500">*</span></label>
             <input
@@ -321,56 +396,37 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               onChange={(e) => setFormData({ ...formData, fluid_removed: e.target.value })}
             />
           </div>
-          <div className="form-group">
-            <label>Attending Nurse <span className="text-red-500">*</span></label>
-            <select
-              required
-              value={formData.nurse}
-              onChange={(e) => setFormData({ ...formData, nurse: e.target.value })}
-            >
-              <option value="" disabled>Select Nurse</option>
-              {['Nurse Alice', 'Nurse Bob', 'Nurse Carol', 'Nurse Dan', 'Nurse Eve'].map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group md:col-span-2">
-            <label>Remarks</label>
-            <textarea
-              rows={3}
-              value={formData.remarks}
-              onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-              placeholder="Enter any notes or complications..."
-            />
-          </div>
         </div>
-      </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-wrap justify-between items-center gap-4 py-4">
-        <button type="button" onClick={clearForm} className="btn btn-gray">
-          <Eraser className="w-4 h-4" /> Clear Form
-        </button>
-        <div className="flex gap-3">
-          {editingRecord && session?.isAdmin && (
-            <button type="button" onClick={handleDelete} className="btn btn-red">
-              <Trash2 className="w-4 h-4" /> Delete
+        {/* Remarks */}
+        <div className="form-group mb-8">
+          <label className="flex items-center gap-2">
+            <FileText className="w-4 h-4" /> Remarks / Observations
+          </label>
+          <textarea
+            className="w-full min-h-[100px]"
+            value={formData.remarks}
+            onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+            placeholder="Add any additional notes here..."
+          />
+        </div>
+
+        {/* Form Actions */}
+        <div className="flex flex-wrap gap-4 pt-6 border-t border-gray-100">
+          <button type="submit" className="btn btn-blue flex-1 py-4 text-lg">
+            {editingRecord ? <RefreshCw className="w-5 h-5" /> : <Save className="w-5 h-5" />}
+            {editingRecord ? 'Update Session' : 'Save Session Record'}
+          </button>
+          
+          {editingRecord && (
+            <button type="button" onClick={onCancel} className="btn btn-gray py-4 text-lg">
+              <X className="w-5 h-5" /> Cancel Edit
             </button>
           )}
-          {editingRecord ? (
-            <div className="flex gap-2">
-               <button type="button" onClick={onCancel} className="btn bg-gray-200 text-gray-700 hover:bg-gray-300">
-                <X className="w-4 h-4" /> Cancel
-              </button>
-              {session?.isAdmin && (
-                <button type="submit" className="btn btn-blue">
-                  <Save className="w-4 h-4" /> Update Record
-                </button>
-              )}
-            </div>
-          ) : (
-            <button type="submit" className="btn btn-green">
-              <Plus className="w-4 h-4" /> Add Record
+          
+          {!editingRecord && (
+            <button type="button" onClick={clearForm} className="btn btn-gray py-4 text-lg">
+              <RefreshCw className="w-5 h-5" /> Clear Form
             </button>
           )}
         </div>

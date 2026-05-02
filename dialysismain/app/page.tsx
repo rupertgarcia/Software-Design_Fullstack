@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { HeartPulse, Hospital, LayoutList, LogOut, User as UserIcon, CircleCheck, CircleAlert, Info, TriangleAlert, X } from 'lucide-react';
+import { HeartPulse, Hospital, LayoutList, LogOut, User as UserIcon, CircleCheck, CircleAlert, Info, TriangleAlert, X, Users } from 'lucide-react';
 import { DialysisRecord, UserSession } from '@/types';
 import RecordForm from '@/components/RecordForm';
 import RecordViewer from '@/components/RecordViewer';
+import PatientManager from '@/components/PatientManager';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -15,7 +16,7 @@ function cn(...inputs: ClassValue[]) {
 
 export default function Dashboard() {
   const [session, setSession] = useState<UserSession | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'records'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'records' | 'patients'>('home');
   const [editingRecord, setEditingRecord] = useState<DialysisRecord | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [toasts, setToasts] = useState<{ id: string; message: string; type: string }[]>([]);
@@ -105,6 +106,17 @@ export default function Dashboard() {
             >
               <LayoutList className="w-4 h-4" /> Records
             </button>
+            {session.isAdmin && (
+              <button
+                onClick={() => setActiveTab('patients')}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all",
+                  activeTab === 'patients' ? "bg-white text-teal-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}
+              >
+                <Users className="w-4 h-4" /> Patients
+              </button>
+            )}
           </div>
 
           <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden sm:block"></div>
@@ -130,7 +142,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
-        {activeTab === 'home' ? (
+        {activeTab === 'home' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mb-8">
               <h2 className="text-2xl font-black text-gray-800 flex items-center gap-3">
@@ -147,12 +159,23 @@ export default function Dashboard() {
               onShowToast={showToast}
             />
           </div>
-        ) : (
+        )}
+        
+        {activeTab === 'records' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <RecordViewer 
               session={session} 
               onEdit={handleEditRecord}
               refreshTrigger={refreshTrigger}
+            />
+          </div>
+        )}
+
+        {activeTab === 'patients' && session.isAdmin && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <PatientManager 
+              session={session} 
+              onShowToast={showToast}
             />
           </div>
         )}
