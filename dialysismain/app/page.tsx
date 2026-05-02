@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { HeartPulse, HouseMedical, TableList, LogOut, User as UserIcon, CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { HeartPulse, Hospital, LayoutList, LogOut, User as UserIcon, CircleCheck, CircleAlert, Info, TriangleAlert, X } from 'lucide-react';
 import { DialysisRecord, UserSession } from '@/types';
 import RecordForm from '@/components/RecordForm';
 import RecordViewer from '@/components/RecordViewer';
@@ -90,7 +90,7 @@ export default function Dashboard() {
                 activeTab === 'home' ? "bg-white text-teal-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
               )}
             >
-              <HouseMedical className="w-4 h-4" /> Home
+              <Hospital className="w-4 h-4" /> Home
             </button>
             <button
               onClick={() => setActiveTab('records')}
@@ -99,7 +99,7 @@ export default function Dashboard() {
                 activeTab === 'records' ? "bg-white text-teal-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
               )}
             >
-              <TableList className="w-4 h-4" /> Records
+              <LayoutList className="w-4 h-4" /> Records
             </button>
           </div>
 
@@ -130,7 +130,7 @@ export default function Dashboard() {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="mb-8">
               <h2 className="text-2xl font-black text-gray-800 flex items-center gap-3">
-                <HouseMedical className="w-7 h-7 text-teal-600" />
+                <Hospital className="w-7 h-7 text-teal-600" />
                 {editingRecord ? `Editing Record: ${editingRecord.record_id}` : 'Session Entry Form'}
               </h2>
               <p className="text-gray-500 font-medium mt-1">Enter patient dialysis session details below.</p>
@@ -174,10 +174,10 @@ export default function Dashboard() {
               toast.type === 'info' && "bg-blue-50 text-blue-600",
               toast.type === 'warning' && "bg-amber-50 text-amber-600"
             )}>
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5" />}
-              {toast.type === 'error' && <AlertCircle className="w-5 h-5" />}
+              {toast.type === 'success' && <CircleCheck className="w-5 h-5" />}
+              {toast.type === 'error' && <CircleAlert className="w-5 h-5" />}
               {toast.type === 'info' && <Info className="w-5 h-5" />}
-              {toast.type === 'warning' && <AlertTriangle className="w-5 h-5" />}
+              {toast.type === 'warning' && <TriangleAlert className="w-5 h-5" />}
             </div>
             <p className="flex-1 font-semibold text-sm">{toast.message}</p>
             <button 
