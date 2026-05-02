@@ -8,6 +8,7 @@ import RecordForm from '@/components/RecordForm';
 import RecordViewer from '@/components/RecordViewer';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { supabase } from '@/lib/supabase';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -23,17 +24,38 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedSession = localStorage.getItem('dialysis_session');
-    if (!storedSession) {
-      router.push('/login');
-    } else {
-      setSession(JSON.parse(storedSession));
-    }
-    setLoading(false);
+    const getSession = async () => {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      
+      if (!authSession) {
+        router.push('/login');
+      } else {
+        setSession({
+          username: authSession.user.email?.split('@')[0] || 'User',
+          isAdmin: authSession.user.user_metadata?.role === 'admin' || authSession.user.email === 'admin@example.com'
+        });
+      }
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.push('/login');
+      } else {
+        setSession({
+          username: session.user.email?.split('@')[0] || 'User',
+          isAdmin: session.user.user_metadata?.role === 'admin' || session.user.email === 'admin@example.com'
+        });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('dialysis_session');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     router.push('/login');
   };
 
@@ -54,10 +76,6 @@ export default function Dashboard() {
   const handleRecordSuccess = () => {
     setRefreshTrigger(prev => prev + 1);
     setEditingRecord(null);
-    if (activeTab === 'home') {
-       // Optionally switch to records tab after add/update
-       // setActiveTab('records');
-    }
   };
 
   const handleCancelEdit = () => {
@@ -65,7 +83,15 @@ export default function Dashboard() {
     setActiveTab('records');
   };
 
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc]">
+      <div className="flex flex-col items-center gap-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
+        <p className="text-gray-500 font-medium">Loading Dashboard...</p>
+      </div>
+    </div>
+  );
+
   if (!session) return null;
 
   return (

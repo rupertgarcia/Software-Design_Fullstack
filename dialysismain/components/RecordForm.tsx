@@ -14,7 +14,7 @@ interface RecordFormProps {
 }
 
 export default function RecordForm({ session, editingRecord, onSuccess, onCancel, onShowToast }: RecordFormProps) {
-  const [formData, setFormData] = useState<Partial<DialysisRecord>>({
+  const [formData, setFormData] = useState<any>({
     first_name: '',
     last_name: '',
     session_date: '',
@@ -23,11 +23,11 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
     machine_number: '',
     dialyzer_type: '',
     pre_bp: '',
-    pre_weight: 0,
+    pre_weight: '',
     post_bp: '',
-    post_weight: 0,
-    uf_goal: 0,
-    fluid_removed: 0,
+    post_weight: '',
+    uf_goal: '',
+    fluid_removed: '',
     nurse: '',
     remarks: ''
   });
@@ -50,11 +50,11 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
       machine_number: '',
       dialyzer_type: '',
       pre_bp: '',
-      pre_weight: 0,
+      pre_weight: '',
       post_bp: '',
-      post_weight: 0,
-      uf_goal: 0,
-      fluid_removed: 0,
+      post_weight: '',
+      uf_goal: '',
+      fluid_removed: '',
       nurse: '',
       remarks: ''
     });
@@ -85,6 +85,14 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
     e.preventDefault();
 
     try {
+      const numericData = {
+        ...formData,
+        pre_weight: parseFloat(formData.pre_weight) || 0,
+        post_weight: parseFloat(formData.post_weight) || 0,
+        uf_goal: parseFloat(formData.uf_goal) || 0,
+        fluid_removed: parseFloat(formData.fluid_removed) || 0,
+      };
+
       if (editingRecord) {
         // Update
         if (!session?.isAdmin) {
@@ -94,7 +102,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
 
         const { error } = await supabase
           .from('dialysis_records')
-          .update(formData)
+          .update(numericData)
           .eq('id', editingRecord.id);
 
         if (error) throw error;
@@ -104,7 +112,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
         const newRecordId = await generateRecordId();
         const { error } = await supabase
           .from('dialysis_records')
-          .insert([{ ...formData, record_id: newRecordId }]);
+          .insert([{ ...numericData, record_id: newRecordId }]);
 
         if (error) throw error;
         onShowToast('Record added successfully', 'success');
@@ -256,7 +264,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
                 step="0.1"
                 required
                 value={formData.pre_weight}
-                onChange={(e) => setFormData({ ...formData, pre_weight: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, pre_weight: e.target.value })}
               />
             </div>
           </div>
@@ -280,7 +288,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
                 step="0.1"
                 required
                 value={formData.post_weight}
-                onChange={(e) => setFormData({ ...formData, post_weight: parseFloat(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, post_weight: e.target.value })}
               />
             </div>
           </div>
@@ -300,7 +308,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               step="0.1"
               required
               value={formData.uf_goal}
-              onChange={(e) => setFormData({ ...formData, uf_goal: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, uf_goal: e.target.value })}
             />
           </div>
           <div className="form-group">
@@ -310,7 +318,7 @@ export default function RecordForm({ session, editingRecord, onSuccess, onCancel
               step="0.1"
               required
               value={formData.fluid_removed}
-              onChange={(e) => setFormData({ ...formData, fluid_removed: parseFloat(e.target.value) })}
+              onChange={(e) => setFormData({ ...formData, fluid_removed: e.target.value })}
             />
           </div>
           <div className="form-group">
