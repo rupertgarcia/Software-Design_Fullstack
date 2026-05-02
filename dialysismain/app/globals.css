@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #0d9488;     /* Medical Teal/Green */
+  --primary-hover: #0f766e;
+  --accent-red: #ef4444;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-gray: #6b7280;
+  
+  --bg-light: #f8fafc;
+  --bg-white: #ffffff;
+  
+  --text-main: #1f2937;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+
+body {
+  background-color: var(--bg-light);
+  color: var(--text-main);
+  font-family: 'Inter', sans-serif;
+}
+
+@layer components {
+  .btn {
+    @apply flex items-center gap-2 px-5 py-2.5 font-medium rounded-lg transition-all duration-200 cursor-pointer text-[0.95rem];
+  }
+  
+  .btn-green { @apply bg-[var(--accent-green)] text-white hover:bg-emerald-600; }
+  .btn-yellow { @apply bg-[var(--accent-yellow)] text-white hover:bg-amber-600; }
+  .btn-blue { @apply bg-[var(--accent-blue)] text-white hover:bg-blue-700; }
+  .btn-red { @apply bg-[var(--accent-red)] text-white hover:bg-red-600; }
+  .btn-gray { @apply bg-[var(--accent-gray)] text-white hover:bg-gray-600; }
+
+  .form-card {
+    @apply bg-white border border-[var(--border-color)] rounded-[var(--radius-lg)] mb-6 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300;
+  }
+
+  .card-header {
+    @apply bg-slate-50 px-5 py-4 border-b border-[var(--border-color)] font-semibold text-[var(--text-main)] flex items-center gap-2.5;
+  }
+
+  .card-body {
+    @apply p-5;
+  }
+
+  .form-group {
+    @apply flex flex-col gap-1.5;
+  }
+
+  .form-group label {
+    @apply text-sm font-medium text-[var(--text-main)];
+  }
+
+  input, select, textarea {
+    @apply px-3 py-2.5 border border-[var(--border-color)] rounded-[var(--radius)] text-[0.95rem] bg-white transition-all duration-200 outline-none focus:border-[var(--primary-color)] focus:ring-4 focus:ring-teal-500/10;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-only, .print-only * {
+    visibility: visible;
+  }
+  
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    display: block !important;
+  }
+
+  .print-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+
+  .print-table th, .print-table td {
+    border: 1px solid #ddd;
+    padding: 6px 8px;
+    text-align: left;
+  }
+
+  .print-table th {
+    background-color: #f3f4f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
