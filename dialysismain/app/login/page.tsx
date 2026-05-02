@@ -21,11 +21,11 @@ export default function LoginPage() {
     try {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: email.trim(),
+          password: password.trim(),
           options: {
             data: {
-              role: email === 'admin@example.com' ? 'admin' : 'user'
+              role: email.trim() === 'admin@example.com' ? 'admin' : 'user'
             }
           }
         });
@@ -34,8 +34,8 @@ export default function LoginPage() {
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: email.trim(),
+          password: password.trim(),
         });
         if (error) throw error;
         router.push('/');
