@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
-import { Database, Filter, Search, X, Check, Printer, FileText, FolderOpen, ChevronDown } from 'lucide-react';
+import { Database, Filter, Search, X, Check, Printer, FileText, FolderOpen, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { DialysisRecord, UserSession } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
@@ -13,11 +13,18 @@ interface RecordViewerProps {
   refreshTrigger: number;
 }
 
+type SortColumn = 'record_id' | 'name' | 'session_date' | 'start_time';
+type SortDirection = 'asc' | 'desc';
+
 export default function RecordViewer({ session, onEdit, refreshTrigger }: RecordViewerProps) {
   const [records, setRecords] = useState<DialysisRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   
+  // Sorting
+  const [sortColumn, setSortColumn] = useState<SortColumn>('session_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
   // Filters
   const [filterName, setFilterName] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
@@ -41,8 +48,7 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
     setLoading(true);
     const { data, error } = await supabase
       .from('dialysis_records')
-      .select('*')
-      .order('session_date', { ascending: false });
+      .select('*');
 
     if (error) {
       console.error('Error fetching records:', error);
@@ -52,8 +58,30 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
     setLoading(false);
   };
 
+  const formatTime = (time: string) => {
+    if (!time) return '';
+    try {
+      const [hours, minutes] = time.split(':');
+      const h = parseInt(hours);
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const h12 = h % 12 || 12;
+      return `${h12}:${minutes} ${ampm}`;
+    } catch (e) {
+      return time;
+    }
+  };
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
   const filteredRecords = useMemo(() => {
-    return records.filter(r => {
+    let result = records.filter(r => {
       const fullName = `${r.first_name} ${r.last_name}`.toLowerCase();
       const matchesName = fullName.includes(filterName.toLowerCase());
       const matchesDateFrom = !filterDateFrom || r.session_date >= filterDateFrom;
@@ -67,7 +95,26 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       return matchesName && matchesDateFrom && matchesDateTo && matchesNurse && 
              matchesMachine && matchesDialyzer && matchesFluidMin && matchesFluidMax;
     });
-  }, [records, filterName, filterDateFrom, filterDateTo, filterNurse, filterMachine, filterDialyzer, filterFluidMin, filterFluidMax]);
+
+    // Apply Sorting
+    result.sort((a, b) => {
+      let valA: any, valB: any;
+      
+      if (sortColumn === 'name') {
+        valA = `${a.last_name} ${a.first_name}`.toLowerCase();
+        valB = `${b.last_name} ${b.first_name}`.toLowerCase();
+      } else {
+        valA = a[sortColumn];
+        valB = b[sortColumn];
+      }
+
+      if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+      if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [records, filterName, filterDateFrom, filterDateTo, filterNurse, filterMachine, filterDialyzer, filterFluidMin, filterFluidMax, sortColumn, sortDirection]);
 
   const clearFilters = () => {
     setFilterName('');
@@ -90,7 +137,7 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       'First Name': r.first_name,
       'Last Name': r.last_name,
       'Date': r.session_date,
-      'Time': `${r.start_time} - ${r.end_time}`,
+      'Time': `${formatTime(r.start_time)} - ${formatTime(r.end_time)}`,
       'Machine': `Machine ${r.machine_number}`,
       'Dialyzer': r.dialyzer_type,
       'Pre-BP': r.pre_bp,
@@ -114,8 +161,13 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       const matchesFrom = !printDateFrom || r.session_date >= printDateFrom;
       const matchesTo = !printDateTo || r.session_date <= printDateTo;
       return matchesFrom && matchesTo;
-    }).sort((a, b) => a.session_date.localeCompare(b.session_date));
+    });
   }, [filteredRecords, printDateFrom, printDateTo]);
+
+  const SortIcon = ({ col }: { col: SortColumn }) => {
+    if (sortColumn !== col) return <ArrowUpDown className="w-3 h-3 text-gray-300" />;
+    return sortDirection === 'asc' ? <ChevronUp className="w-3 h-3 text-teal-600" /> : <ChevronDown className="w-3 h-3 text-teal-600" />;
+  };
 
   if (loading) {
     return (
@@ -184,8 +236,8 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
               <label>Machine Number</label>
               <select value={filterMachine} onChange={(e) => setFilterMachine(e.target.value)}>
                 <option value="">All Machines</option>
-                {[1, 2, 3, 4, 5, 6].map(n => (
-                  <option key={n} value={n.toString()}>Machine {n}</option>
+                {Array.from({length: 10}, (_, i) => (i+1).toString()).map(n => (
+                  <option key={n} value={n}>Machine {n}</option>
                 ))}
               </select>
             </div>
@@ -219,60 +271,84 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[1000px]">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">ID</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Machine</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Dialyzer</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Pre BP/Wt</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Post BP/Wt</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">UF/Net</th>
-              <th className="px-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Nurse</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filteredRecords.length > 0 ? (
-              filteredRecords.map(record => (
-                <tr 
-                  key={record.id} 
-                  onClick={() => onEdit(record)}
-                  className="hover:bg-slate-50 cursor-pointer transition-colors group"
-                >
-                  <td className="px-4 py-4 font-bold text-teal-700">{record.record_id}</td>
-                  <td className="px-4 py-4 font-medium text-gray-900">{record.first_name} {record.last_name}</td>
-                  <td className="px-4 py-4 text-gray-600">{record.session_date}</td>
-                  <td className="px-4 py-4 text-gray-600">{record.start_time} - {record.end_time}</td>
-                  <td className="px-4 py-4 text-gray-600">M-{record.machine_number}</td>
-                  <td className="px-4 py-4 text-gray-600">{record.dialyzer_type}</td>
-                  <td className="px-4 py-4 text-xs text-gray-600">
-                    <span className="font-bold">{record.pre_bp}</span><br />
-                    <span>{record.pre_weight} kg</span>
-                  </td>
-                  <td className="px-4 py-4 text-xs text-gray-600">
-                    <span className="font-bold">{record.post_bp}</span><br />
-                    <span>{record.post_weight} kg</span>
-                  </td>
-                  <td className="px-4 py-4 text-gray-600">{record.uf_goal}L / {record.fluid_removed}L</td>
-                  <td className="px-4 py-4 text-gray-600">{record.nurse}</td>
-                </tr>
-              ))
-            ) : (
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-xl shadow-slate-200/50">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1000px]">
+            <thead className="bg-slate-50 border-b border-gray-100">
               <tr>
-                <td colSpan={10} className="py-20 text-center text-gray-400">
-                  <div className="flex flex-col items-center">
-                    <FolderOpen className="w-12 h-12 mb-2 text-gray-200" />
-                    <p>No records found matching your criteria.</p>
-                  </div>
-                </td>
+                <th onClick={() => handleSort('record_id')} className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center gap-2">ID <SortIcon col="record_id" /></div>
+                </th>
+                <th onClick={() => handleSort('name')} className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center gap-2">Patient Name <SortIcon col="name" /></div>
+                </th>
+                <th onClick={() => handleSort('session_date')} className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors w-[120px]">
+                  <div className="flex items-center gap-2">Date <SortIcon col="session_date" /></div>
+                </th>
+                <th onClick={() => handleSort('start_time')} className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors w-[180px]">
+                  <div className="flex items-center gap-2">Session Time <SortIcon col="start_time" /></div>
+                </th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Machine</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Dialyzer</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">BP/Wt (Pre)</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">BP/Wt (Post)</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Goal/Net</th>
+                <th className="px-6 py-4 text-xs font-black text-gray-400 uppercase tracking-widest">Nurse</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filteredRecords.length > 0 ? (
+                filteredRecords.map(record => (
+                  <tr 
+                    key={record.id} 
+                    onClick={() => onEdit(record)}
+                    className="hover:bg-teal-50/30 cursor-pointer transition-all group"
+                  >
+                    <td className="px-6 py-4 font-black text-teal-600 text-sm">{record.record_id}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-gray-900 group-hover:text-teal-900 transition-colors">{record.last_name}, {record.first_name}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-semibold text-gray-600 whitespace-normal break-words leading-tight">
+                      {format(new Date(record.session_date), 'MMM dd, yyyy')}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600 whitespace-normal break-words leading-tight">
+                      <div className="font-bold text-gray-800">{formatTime(record.start_time)}</div>
+                      <div className="text-gray-400 text-[10px] font-bold">to {formatTime(record.end_time)}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-md text-[10px] font-black uppercase">M-{record.machine_number}</span>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-600">{record.dialyzer_type}</td>
+                    <td className="px-6 py-4 text-xs leading-relaxed">
+                      <div className="font-bold text-gray-800">{record.pre_bp}</div>
+                      <div className="text-gray-400 font-medium">{record.pre_weight}kg</div>
+                    </td>
+                    <td className="px-6 py-4 text-xs leading-relaxed">
+                      <div className="font-bold text-gray-800">{record.post_bp}</div>
+                      <div className="text-gray-400 font-medium">{record.post_weight}kg</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-teal-700">{record.uf_goal}L Goal</span>
+                        <span className="text-[10px] font-bold text-slate-400">{record.fluid_removed}L Removed</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-gray-500">{record.nurse}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={10} className="py-20 text-center text-gray-400">
+                    <div className="flex flex-col items-center">
+                      <FolderOpen className="w-12 h-12 mb-2 text-gray-200" />
+                      <p className="font-medium">No records found matching your criteria.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Print Modal */}
@@ -341,12 +417,12 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
               <th>ID</th>
               <th>Patient Name</th>
               <th>Date</th>
+              <th>Session Time</th>
               <th>Machine</th>
               <th>Dialyzer</th>
-              <th>Pre BP/Wt</th>
-              <th>Post BP/Wt</th>
-              <th>UF Goal</th>
-              <th>Net Fluid</th>
+              <th>BP/Wt (Pre)</th>
+              <th>BP/Wt (Post)</th>
+              <th>Goal/Net</th>
               <th>Nurse</th>
             </tr>
           </thead>
@@ -355,13 +431,13 @@ export default function RecordViewer({ session, onEdit, refreshTrigger }: Record
               <tr key={r.id}>
                 <td className="font-bold">{r.record_id}</td>
                 <td>{r.last_name}, {r.first_name}</td>
-                <td>{r.session_date}</td>
+                <td>{format(new Date(r.session_date), 'MMM dd, yyyy')}</td>
+                <td>{formatTime(r.start_time)} - {formatTime(r.end_time)}</td>
                 <td>M-{r.machine_number}</td>
                 <td>{r.dialyzer_type}</td>
                 <td>{r.pre_bp} / {r.pre_weight}kg</td>
                 <td>{r.post_bp} / {r.post_weight}kg</td>
-                <td>{r.uf_goal}L</td>
-                <td>{r.fluid_removed}L</td>
+                <td>{r.uf_goal}L / {r.fluid_removed}L</td>
                 <td>{r.nurse}</td>
               </tr>
             ))}
